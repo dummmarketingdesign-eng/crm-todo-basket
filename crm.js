@@ -219,6 +219,82 @@ function TodoBasketCRM() {
     reader.readAsText(file, "cp1250");
   };
 
+  const handleFileWA = async (file) => {
+    if (!file) return;
+    try {
+      const zip = await JSZip.loadAsync(file);
+      let chatContent = null;
+      
+      for (const [filename, fileObj] of Object.entries(zip.files)) {
+        if (filename.includes('_chat.txt')) {
+          chatContent = await fileObj.async('text');
+          break;
+        }
+      }
+      
+      if (!chatContent) {
+        alert("No se encontró el archivo _chat.txt en el ZIP");
+        return;
+      }
+      
+      const lines = chatContent.split("\n").filter(l => l.trim());
+      const messagePattern = /\[([^\]]+)\]\s+~([^:]+):\s+(.+)/;
+      const messages = lines.map(line => {
+        const match = line.match(messagePattern);
+        if (!match) return null;
+        const [_, datetime, nombre, mensaje] = match;
+        return { datetime, nombre: nombre.trim(), mensaje: mensaje.trim() };
+      }).filter(Boolean);
+
+      if (messages.length === 0) {
+        alert("No se encontraron mensajes en el chat");
+        return;
+      }
+
+      const ultimoMensaje = messages[messages.length - 1];
+      const fechaParts = ultimoMensaje.datetime.split(",")[0].split("/");
+      const [d, m, y] = fechaParts;
+      const ultimoContacto = `20${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;
+
+      const nombre = messages[0].nombre;
+      const todosLosTextos = messages.map(m => m.mensaje).join(" ").toLowerCase();
+      
+      let producto = "";
+      const palabrasProducto = ["nike", "jordan", "kobe", "kyrie", "lebron", "luka", "ja morant", "stephen curry", "adidas", "puma", "nba", "remera", "zapata", "zapatilla"];
+      palabrasProducto.forEach(p => {
+        if (todosLosTextos.includes(p)) {
+          const idx = todosLosTextos.indexOf(p);
+          const context = todosLosTextos.substring(Math.max(0, idx-20), idx+40);
+          if (context.length > producto.length) producto = context.trim();
+        }
+      });
+
+      const contact = {
+        id: Date.now().toString() + Math.random().toString(36).slice(2),
+        nombre,
+        email: "",
+        telefono: "",
+        canal: "WhatsApp",
+        tipo: "Consulta WA",
+        producto: producto || "Producto no identificado",
+        precioCarrito: "",
+        ultimoContacto,
+        estado: "Consulta pendiente",
+        notas: `${messages.length} mensaje${messages.length!==1?"s":""} en el chat`,
+      };
+
+      const existe = contacts.some(c => c.nombre.toLowerCase() === contact.nombre.toLowerCase() && c.canal === "WhatsApp");
+      if (existe) {
+        alert("Este contacto ya existe en el CRM");
+      } else {
+        save([...contacts, contact]);
+        setImportResult({ nuevos: 1, duplicados: 0, total: 1 });
+      }
+    } catch(err) { 
+      alert("Error procesando el chat. Verifica que sea un ZIP válido de WhatsApp.");
+    }
+  };
+
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
@@ -254,6 +330,7 @@ function TodoBasketCRM() {
       React.createElement("div", { style: {display:"flex", gap:"6px", flexWrap:"wrap"}},
         React.createElement("button", { style: S.btnSecondary, onClick: () => { setImportResult(null); setShowImportTN(true); }}, "↑ CSV"),
         React.createElement("button", { style: S.btnSecondary, onClick: () => { setImportResult(null); setShowImportStock(true); }}, "📊 Stock"),
+        React.createElement("button", { style: S.btnSecondary, onClick: () => { setImportResult(null); setShowImportWA(true); }}, "💬 WA"),
         React.createElement("button", { style: S.btnPrimary, onClick: () => { setForm(defaultForm); setEditId(null); setShowModal(true); }}, "+ Contacto")
       )
     ),
@@ -373,6 +450,25 @@ function TodoBasketCRM() {
         ),
         React.createElement("div", { style: {display:"flex", justifyContent:"flex-end", marginTop:"16px"}},
           React.createElement("button", { style: S.btnSecondary, onClick: () => setShowImportStock(false)}, "Cerrar")
+        )
+      )
+    ),
+    showImportWA && React.createElement("div", { style: S.modal, onClick: e => e.target===e.currentTarget && setShowImportWA(false)},
+      React.createElement("div", { style: {...S.modalBox, maxWidth:"420px"}},
+        React.createElement("h2", { style: {fontSize:"16px", fontWeight:"600", marginBottom:"6px"}}, "Importar Chat WhatsApp"),
+        React.createElement("p", { style: {fontSize:"12px", color:textMuted, marginBottom:"18px"}}, "Cargá el ZIP export del chat desde WhatsApp."),
+        React.createElement("input", { type: "file", accept: ".zip", ref: fileRef, style: {display:"none"}, onChange: e => handleFileWA(e.target.files[0])}),
+        React.createElement("div", { style: {border: `2px dashed ${dragOver?accent:"rgba(46,168,224,0.4)"}`, borderRadius:"12px", padding:"28px 20px", textAlign:"center", cursor:"pointer", background: dragOver?accentLight:"rgba(255,255,255,0.5)", transition:"all 0.2s"}, onClick: () => fileRef.current?.click(), onDragOver: e => {e.preventDefault(); setDragOver(true);}, onDragLeave: () => setDragOver(false), onDrop: e => {e.preventDefault(); setDragOver(false); handleFileWA(e.dataTransfer.files[0]);}},
+          React.createElement("div", { style: {fontSize:"28px", marginBottom:"6px"}}, "💬"),
+          React.createElement("div", { style: {fontSize:"13px", fontWeight:"500", color:accent}}, "Arrastrá el ZIP"),
+          React.createElement("div", { style: {fontSize:"11px", color:textMuted, marginTop:"3px"}}, "o hacé click")
+        ),
+        importResult?.nuevos && React.createElement("div", { style: {marginTop:"14px", background:"rgba(212,237,218,0.5)", border:"1px solid rgba(45,106,79,0.2)", borderRadius:"10px", padding:"12px 14px", fontSize:"12px"}},
+          React.createElement("div", { style: {fontWeight:"600", color:"#2d6a4f", marginBottom:"4px"}}, "✓ Contacto cargado"),
+          React.createElement("div", null, `👤 ${importResult.nuevos} nuevo agregado`)
+        ),
+        React.createElement("div", { style: {display:"flex", justifyContent:"flex-end", marginTop:"16px"}},
+          React.createElement("button", { style: S.btnSecondary, onClick: () => setShowImportWA(false)}, "Cerrar")
         )
       )
     ),
