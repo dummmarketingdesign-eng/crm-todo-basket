@@ -219,11 +219,6 @@ function TodoBasketCRM() {
     reader.readAsText(file, "cp1250");
   };
 
-  const handleFileWA = (file) => {
-    if (!file) return;
-    alert("Para WhatsApp, cargá el archivo de chat exportado de la misma forma que antes.");
-  };
-
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
