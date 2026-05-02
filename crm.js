@@ -28,6 +28,7 @@ const S = {
   btnPrimary: { background: accent, color: "#fff", border: "none", borderRadius: "8px", padding: "9px 16px", fontSize: "13px", fontWeight: "500", cursor: "pointer", fontFamily: "inherit" },
   btnSecondary: { background: "rgba(255,255,255,0.75)", color: accent, border: `1px solid ${accent}`, borderRadius: "8px", padding: "8px 14px", fontSize: "12px", fontWeight: "500", cursor: "pointer", fontFamily: "inherit" },
   btnCopy: { background: "rgba(46,168,224,0.1)", color: accent, border: `1px solid ${accent}`, borderRadius: "6px", padding: "5px 10px", fontSize: "11px", fontWeight: "500", cursor: "pointer", fontFamily: "inherit" },
+  btnWA: { background: "#25d366", color: "#fff", border: "none", borderRadius: "8px", padding: "9px 16px", fontSize: "13px", fontWeight: "500", cursor: "pointer", fontFamily: "inherit" },
   btnDanger: { background: "transparent", color: "#e74c3c", border: "none", padding: "4px 7px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", borderRadius: "6px" },
   tableWrap: { padding: "0 36px 40px", overflowX: "auto" },
   table: { width: "100%", borderCollapse: "separate", borderSpacing: "0 5px", minWidth: "850px" },
@@ -302,6 +303,16 @@ function TodoBasketCRM() {
     });
   };
 
+  const enviarPorWA = (contact, mensaje) => {
+    if (!contact.telefono) {
+      alert("Primero agregá el número de teléfono del contacto");
+      return;
+    }
+    const numero = contact.telefono.replace(/\D/g, '');
+    const mensajeEncoded = encodeURIComponent(mensaje);
+    window.open(`https://wa.me/${numero}?text=${mensajeEncoded}`, '_blank');
+  };
+
   const filtered = contacts.filter(c => {
     const mc = filterCanal === "Todos" || c.canal === filterCanal;
     const me = filterEstado === "Todos" || c.estado === filterEstado;
@@ -475,15 +486,19 @@ function TodoBasketCRM() {
     messageModal && React.createElement("div", { style: S.modal, onClick: e => e.target===e.currentTarget && setMessageModal(null)},
       React.createElement("div", { style: {...S.modalBox, maxWidth:"480px"}},
         React.createElement("h2", { style: {fontSize:"16px", fontWeight:"600", marginBottom:"4px"}}, messageModal.nombre),
-        React.createElement("p", { style: {fontSize:"11px", color:textMuted, marginBottom:"16px", textTransform:"uppercase", letterSpacing:"0.06em"}}, `${messageModal.tipo} · ${messageModal.canal}`),
+        React.createElement("p", { style: {fontSize:"11px", color:textMuted, marginBottom:"6px", textTransform:"uppercase", letterSpacing:"0.06em"}}, `${messageModal.tipo} · ${messageModal.canal}`),
+        messageModal.telefono && React.createElement("div", { style: {fontSize:"12px", color:accent, marginBottom:"12px", fontWeight:"500"}}, `📱 ${messageModal.telefono}`),
         React.createElement("div", { style: {background:"rgba(240,244,255,0.8)", border: `1px solid ${accent}`, borderRadius:"10px", padding:"16px", marginBottom:"16px", fontSize:"13px", lineHeight:"1.5", color:text}},
           generarMensaje(messageModal, stock)
         ),
-        React.createElement("div", { style: {display:"flex", gap:"8px"}},
-          React.createElement("button", { style: {...S.btnCopy, flex:1}, onClick: () => {copyToClipboard(generarMensaje(messageModal, stock)); setMessageModal(null);}},
+        React.createElement("div", { style: {display:"flex", gap:"8px", flexWrap:"wrap"}},
+          React.createElement("button", { style: {...S.btnCopy, flex:"1 1 auto"}, onClick: () => {copyToClipboard(generarMensaje(messageModal, stock));}},
             copied ? "✓ Copiado" : "📋 Copiar"
           ),
-          React.createElement("button", { style: {...S.btnSecondary, flex:1}, onClick: () => setMessageModal(null)}, "Cerrar")
+          React.createElement("button", { style: {...S.btnWA, flex:"1 1 auto"}, onClick: () => enviarPorWA(messageModal, generarMensaje(messageModal, stock))},
+            "📱 Enviar WA"
+          ),
+          React.createElement("button", { style: {...S.btnSecondary, flex:"1 1 auto"}, onClick: () => setMessageModal(null)}, "Cerrar")
         )
       )
     ),
