@@ -1,0 +1,8 @@
+{
+  "name": "crm-todo-basket",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "echo 'No build needed'",
+    "start": "python3 -m http.server 3000"
+  }
+}
