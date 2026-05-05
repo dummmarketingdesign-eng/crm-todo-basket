@@ -29,7 +29,7 @@ const S = {
   btnSecondary: { background: "rgba(255,255,255,0.75)", color: accent, border: `1px solid ${accent}`, borderRadius: "8px", padding: "8px 14px", fontSize: "12px", fontWeight: "500", cursor: "pointer", fontFamily: "inherit" },
   btnCopy: { background: "rgba(46,168,224,0.1)", color: accent, border: `1px solid ${accent}`, borderRadius: "6px", padding: "5px 10px", fontSize: "11px", fontWeight: "500", cursor: "pointer", fontFamily: "inherit" },
   btnWA: { background: "#25d366", color: "#fff", border: "none", borderRadius: "8px", padding: "9px 16px", fontSize: "13px", fontWeight: "500", cursor: "pointer", fontFamily: "inherit" },
-  btnDanger: { background: "transparent", color: "#e74c3c", border: "none", padding: "4px 7px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", borderRadius: "6px" },
+  btnDanger: { background: "#e74c3c", color: "#fff", border: "none", borderRadius: "8px", padding: "8px 14px", fontSize: "12px", fontWeight: "500", cursor: "pointer", fontFamily: "inherit" },
   tableWrap: { padding: "0 36px 40px", overflowX: "auto" },
   table: { width: "100%", borderCollapse: "separate", borderSpacing: "0 5px", minWidth: "850px" },
   th: { fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.08em", color: textMuted, fontWeight: "500", padding: "0 12px 7px", textAlign: "left" },
@@ -166,6 +166,7 @@ function TodoBasketCRM() {
   const [copied, setCopied] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [importResult, setImportResult] = useState(null);
+  const [selected, setSelected] = useState(new Set());
   const PER_PAGE = 25;
   const fileRef = useRef();
   const fileTNRef = useRef();
@@ -313,6 +314,31 @@ function TodoBasketCRM() {
     window.open(`https://wa.me/${numero}?text=${mensajeEncoded}`, '_blank');
   };
 
+  const toggleSelected = (id) => {
+    const newSelected = new Set(selected);
+    if (newSelected.has(id)) newSelected.delete(id);
+    else newSelected.add(id);
+    setSelected(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === paginated.length) {
+      setSelected(new Set());
+    } else {
+      const newSelected = new Set(paginated.map(c => c.id));
+      setSelected(newSelected);
+    }
+  };
+
+  const deleteSelected = () => {
+    if (selected.size === 0) return;
+    if (window.confirm(`¿Borrar ${selected.size} contacto${selected.size > 1 ? 's' : ''}?`)) {
+      const newContacts = contacts.filter(c => !selected.has(c.id));
+      save(newContacts);
+      setSelected(new Set());
+    }
+  };
+
   const filtered = contacts.filter(c => {
     const mc = filterCanal === "Todos" || c.canal === filterCanal;
     const me = filterEstado === "Todos" || c.estado === filterEstado;
@@ -369,7 +395,8 @@ function TodoBasketCRM() {
         ),
         React.createElement("span", { style: {position:"absolute", right:"9px", top:"50%", transform:"translateY(-50%)", pointerEvents:"none", fontSize:"9px", color:filterEstado!=="Todos"?accent:textMuted}}, "▼")
       ),
-      (filterCanal!=="Todos"||filterEstado!=="Todos"||search) && React.createElement("button", { style: {...S.btnSecondary, fontSize:"11px"}, onClick: () => {setFilterCanal("Todos"); setFilterEstado("Todos"); setSearch(""); setPage(1);}}, "Limpiar")
+      (filterCanal!=="Todos"||filterEstado!=="Todos"||search) && React.createElement("button", { style: {...S.btnSecondary, fontSize:"11px"}, onClick: () => {setFilterCanal("Todos"); setFilterEstado("Todos"); setSearch(""); setPage(1);}}, "Limpiar"),
+      selected.size > 0 && React.createElement("button", { style: {...S.btnDanger, marginLeft:"auto"}, onClick: deleteSelected}, `🗑️ Borrar ${selected.size}`)
     ),
     React.createElement("div", { style: S.tableWrap },
       filtered.length === 0 ? 
@@ -381,6 +408,9 @@ function TodoBasketCRM() {
           React.createElement("table", { style: S.table },
             React.createElement("thead", null,
               React.createElement("tr", null,
+                React.createElement("th", { style: {...S.th, width:"40px"}},
+                  React.createElement("input", { type: "checkbox", checked: selected.size === paginated.length && paginated.length > 0, onChange: toggleSelectAll, style: {cursor:"pointer"}})
+                ),
                 ["Nombre","Tipo","Producto","Precio","Canal","Último contacto","Estado","Mensaje",""].map(h =>
                   React.createElement("th", { key: h, style: S.th}, h)
                 )
@@ -390,6 +420,9 @@ function TodoBasketCRM() {
               paginated.map(c => {
                 const dias = diasDesde(c.ultimoContacto);
                 return React.createElement("tr", { key: c.id },
+                  React.createElement("td", { style: {...S.td, width:"40px", textAlign:"center"}},
+                    React.createElement("input", { type: "checkbox", checked: selected.has(c.id), onChange: () => toggleSelected(c.id), style: {cursor:"pointer"}})
+                  ),
                   React.createElement("td", { style: {...S.td, borderRadius:"9px 0 0 9px", borderRight:"none", fontWeight:"500"}}, c.nombre),
                   React.createElement("td", { style: {...S.td, borderRadius:0, borderLeft:"none", borderRight:"none", fontSize:"11px", color:accent, fontWeight:"500"}}, c.tipo),
                   React.createElement("td", { style: {...S.td, borderRadius:0, borderLeft:"none", borderRight:"none", fontSize:"11px", color:textMuted, maxWidth:"120px", overflow:"hidden", textOverflow:"ellipsis"}}, c.producto||"—"),
@@ -411,8 +444,7 @@ function TodoBasketCRM() {
                     React.createElement("button", { style: S.btnCopy, onClick: () => setMessageModal(c)}, "Ver msg")
                   ),
                   React.createElement("td", { style: {...S.td, borderRadius:"0 9px 9px 0", borderLeft:"none", whiteSpace:"nowrap"}},
-                    React.createElement("button", { style: {...S.btnSecondary, fontSize:"11px", padding:"4px 9px"}, onClick: () => {setForm({...c}); setEditId(c.id); setShowModal(true);}}, "Ed"),
-                    React.createElement("button", { style: S.btnDanger, onClick: () => {if(window.confirm("¿Eliminar?")) save(contacts.filter(x => x.id !== c.id));}}, "✕")
+                    React.createElement("button", { style: {...S.btnSecondary, fontSize:"11px", padding:"4px 9px"}, onClick: () => {setForm({...c}); setEditId(c.id); setShowModal(true);}}, "Ed")
                   )
                 );
               })
